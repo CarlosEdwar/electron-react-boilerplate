@@ -14,6 +14,7 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+import database from '../database/database';
 
 class AppUpdater {
   constructor() {
@@ -29,6 +30,143 @@ ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
+});
+
+
+ipcMain.handle('database:getProducts', async () => {
+  try {
+    return database.getProducts();
+  } catch (error) {
+    console.error('Erro ao buscar produtos:', error);
+    return [];
+  }
+});
+
+ipcMain.handle('database:updateProductStock', async (event, productId: number, newStock: number) => {
+  try {
+    return database.updateProductStock(productId, newStock);
+  } catch (error) {
+    console.error('Erro ao atualizar estoque:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('database:createSale', async (event, saleData: any) => {
+  try {
+    return database.createSale(saleData);
+  } catch (error) {
+    console.error('Erro ao criar venda:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('database:getSalesWithItems', async () => {
+  try {
+    return database.getSalesWithItems();
+  } catch (error) {
+    console.error('Erro ao buscar vendas:', error);
+    return [];
+  }
+});
+
+ipcMain.handle('database:getProduct', async (event, id: number) => {
+  try {
+    return database.getProduct(id);
+  } catch (error) {
+    console.error('Erro ao buscar produto:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('database:addProduct', async (event, productData: any) => {
+  try {
+    return database.addProduct(productData);
+  } catch (error) {
+    console.error('Erro ao adicionar produto:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('database:updateProduct', async (event, productId: number, productData: any) => {
+  try {
+    return database.updateProduct(productId, productData);
+  } catch (error) {
+    console.error('Erro ao atualizar produto:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('database:deleteProduct', async (event, productId: number) => {
+  try {
+    return database.deleteProduct(productId);
+  } catch (error) {
+    console.error('Erro ao excluir produto:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Novos handlers para caixa
+ipcMain.handle('database:openCashRegister', async (event, initialAmount: number) => {
+  try {
+    return database.openCashRegister(initialAmount);
+  } catch (error) {
+    console.error('Erro ao abrir caixa:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('database:closeCashRegister', async (event, finalAmount: number, observations: string) => {
+  try {
+    return database.closeCashRegister(finalAmount, observations);
+  } catch (error) {
+    console.error('Erro ao fechar caixa:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('database:getOpenCashRegister', async () => {
+  try {
+    return database.getOpenCashRegister();
+  } catch (error) {
+    console.error('Erro ao buscar caixa aberto:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('database:getCashRegisters', async () => {
+  try {
+    return database.getCashRegisters();
+  } catch (error) {
+    console.error('Erro ao buscar caixas:', error);
+    return [];
+  }
+});
+
+ipcMain.handle('database:addCashEntry', async (event, amount: number, description: string) => {
+  try {
+    return database.addCashEntry(amount, description);
+  } catch (error) {
+    console.error('Erro ao adicionar entrada:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('database:addCashWithdrawal', async (event, amount: number, description: string) => {
+  try {
+    return database.addCashWithdrawal(amount, description);
+  } catch (error) {
+    console.error('Erro ao adicionar saída:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('database:getMonthlyReport', async (event, year: number, month: number) => {
+  try {
+    return database.getMonthlyReport(year, month);
+  } catch (error) {
+    console.error('Erro ao gerar relatório:', error);
+    return null;
+  }
 });
 
 if (process.env.NODE_ENV === 'production') {
@@ -71,13 +209,15 @@ const createWindow = async () => {
 
   mainWindow = new BrowserWindow({
     show: false,
-    width: 1024,
-    height: 728,
-    icon: getAssetPath('icon.png'),
+    width: 1400,
+    height: 900,
+    icon: getAssetPath('Person.png'),
     webPreferences: {
       preload: app.isPackaged
         ? path.join(__dirname, 'preload.js')
         : path.join(__dirname, '../../.erb/dll/preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
     },
   });
 
@@ -120,6 +260,7 @@ app.on('window-all-closed', () => {
   // Respect the OSX convention of having the application in memory even
   // after all windows have been closed
   if (process.platform !== 'darwin') {
+    database.close();
     app.quit();
   }
 });
@@ -127,10 +268,11 @@ app.on('window-all-closed', () => {
 app
   .whenReady()
   .then(() => {
+    
+    
     createWindow();
     app.on('activate', () => {
-      // On macOS it's common to re-create a window in the app when the
-      // dock icon is clicked and there are no other windows open.
+      
       if (mainWindow === null) createWindow();
     });
   })
